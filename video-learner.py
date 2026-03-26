@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Video-Learner - 视频转Skill工具（整合版）
-支持抖音/B站/YouTube
+支持抖音/B站/YouTube，自动命名
 """
 
 import subprocess
@@ -71,6 +71,19 @@ def check_dependencies():
     print("✅ 所有依赖已安装，可以正常使用！\n")
     return True
 
+def clean_filename(name):
+    """清理文件名，去除特殊字符"""
+    # 去除 # 标签、emoji等
+    import re
+    name = re.sub(r'[#\u0001F300-\u0001F9FF]', '', name)  # 去除emoji和#
+    name = name.strip()
+    # 限制长度
+    if len(name) > 30:
+        name = name[:30]
+    # 空格转横线
+    name = name.replace(' ', '-')
+    return name
+
 def get_video_title(url):
     result = subprocess.run(
         ["yt-dlp", "--get-title", url],
@@ -126,6 +139,10 @@ def main():
     try:
         title = get_video_title(url)
         print(f"📌 标题: {title}")
+        
+        # 自动生成 Skill 名称
+        skill_name = clean_filename(title)
+        print(f"🏷️ Skill名称: {skill_name}")
     except Exception as e:
         print(f"❌ 获取标题失败: {e}")
         sys.exit(1)
@@ -163,9 +180,41 @@ def main():
     text = transcribe(audio_file)
     print(f"📝 识别了 {len(text)} 字")
 
-    print(f"\n✅ 完成！识别内容：")
-    print(text[:500] + "...")
-    print("\n💡 把识别结果发给我，我来帮你生成Skill！")
+    # 保存到 skills 目录
+    skill_path = os.path.join(SKILLS_DIR, skill_name, "SKILL.md")
+    os.makedirs(os.path.dirname(skill_path), exist_ok=True)
+    
+    # 创建基础 Skill 文件
+    skill_content = f"""# {title}
+
+## 简短描述
+
+基于视频「{title}」生成的技能
+
+## 功能
+
+- 自动整理视频内容
+- 提供相关知识查询
+- 回答视频相关问题
+
+## 使用示例
+
+用户：{title} 讲了什么？
+助手：这是一段关于「{title}」的视频内容...
+
+## 备注
+
+识别字数：{len(text)} 字
+生成时间：{__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M')}
+"""
+
+    with open(skill_path, "w", encoding="utf-8") as f:
+        f.write(skill_content)
+
+    print(f"\n✅ 完成！")
+    print(f"📁 Skill已保存: {skill_path}")
+    print(f"🏷️ Skill名称: {skill_name}")
+    print("\n💡 识别结果已保存，你可以告诉我需要生成什么内容的Skill，我来帮你完善！")
 
 if __name__ == "__main__":
     main()
