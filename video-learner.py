@@ -1,123 +1,42 @@
 #!/usr/bin/env python3
 """
-Video-Learner - 视频转Skill工具（多LLM版本）
-支持多种大语言模型
+Video-Learner - 视频转Skill工具（整合版）
+支持抖音/B站/YouTube，抖音使用 douyin-download
 """
 
 import subprocess
 import whisper
-import requests
 import os
 import sys
-
-# ==================== 配置 ====================
-# 选择 LLM 提供商: minimax / openai / claude
-LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "minimax")
-
-# MiniMax 配置
-MINIMAX_API_KEY = os.environ.get("MINIMAX_API_KEY", "")
-MINIMAX_MODEL = "MiniMax-M2.5"
-
-# OpenAI 配置
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_MODEL = "gpt-4o-mini"
-
-# Claude 配置
-CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY", "")
-CLAUDE_MODEL = "claude-3-haiku-20240307"
 
 # 输出目录
 SKILLS_DIR = os.path.expanduser("~/.openclaw/workspace/skills")
 
-# ==================== 核心函数 ====================
-
-def check_api_key():
-    """检查API Key是否设置"""
-    if LLM_PROVIDER == "minimax" and not MINIMAX_API_KEY:
-        print("❌ 错误: 请设置环境变量 MINIMAX_API_KEY")
-        print("   运行: export MINIMAX_API_KEY='你的API Key'")
-        sys.exit(1)
-    elif LLM_PROVIDER == "openai" and not OPENAI_API_KEY:
-        print("❌ 错误: 请设置环境变量 OPENAI_API_KEY")
-        print("   运行: export OPENAI_API_KEY='你的API Key'")
-        sys.exit(1)
-    elif LLM_PROVIDER == "claude" and not CLAUDE_API_KEY:
-        print("❌ 错误: 请设置环境变量 CLAUDE_API_KEY")
-        print("   运行: export CLAUDE_API_KEY='你的API Key'")
-        sys.exit(1)
-
-def call_llm(prompt, max_tokens=1000):
-    """调用LLM"""
-    if LLM_PROVIDER == "minimax":
-        return call_minimax(prompt, max_tokens)
-    elif LLM_PROVIDER == "openai":
-        return call_openai(prompt, max_tokens)
-    elif LLM_PROVIDER == "claude":
-        return call_claude(prompt, max_tokens)
-    else:
-        print(f"❌ 不支持的LLM: {LLM_PROVIDER}")
-        sys.exit(1)
-
-def call_minimax(prompt, max_tokens):
-    """调用MiniMax"""
-    resp = requests.post(
-        "https://api.minimax.chat/v1/text/chatcompletion_v2",
-        headers={
-            "Authorization": f"Bearer {MINIMAX_API_KEY}",
-            "Content-Type": "application/json"
-        },
-        json={
-            "model": MINIMAX_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens
-        },
-        timeout=30
-    )
-    data = resp.json()
-    if "choices" in data and len(data["choices"]) > 0:
-        return data["choices"][0]["message"]["content"]
-    return f"API返回异常: {data}"
-
-def call_openai(prompt, max_tokens):
-    """调用OpenAI"""
-    resp = requests.post(
-        "https://api.openai.com/v1/chat/completions",
-        headers={
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json"
-        },
-        json={
-            "model": OPENAI_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": max_tokens
-        },
-        timeout=30
-    )
-    data = resp.json()
-    if "choices" in data and len(data["choices"]) > 0:
-        return data["choices"][0]["message"]["content"]
-    return f"API返回异常: {data}"
-
-def call_claude(prompt, max_tokens):
-    """调用Claude"""
-    resp = requests.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": CLAUDE_API_KEY,
-            "anthropic-version": "2023-06-01",
-            "Content-Type": "application/json"
-        },
-        json={
-            "model": CLAUDE_MODEL,
-            "max_tokens": max_tokens,
-            "messages": [{"role": "user", "content": prompt}]
-        },
-        timeout=30
-    )
-    data = resp.json()
-    if "content" in data and len(data["content"]) > 0:
-        return data["content"][0]["text"]
-    return f"API返回异常: {data}"
+def check_dependencies():
+    """检查依赖"""
+    # 检查 yt-dlp
+    try:
+        subprocess.run(["yt-dlp", "--version"], capture_output=True, timeout=5)
+    except:
+        print("❌ 错误: 请安装 yt-dlp")
+        print("   运行: pip3 install yt-dlp")
+        return False
+    
+    # 检查 ffmpeg
+    try:
+        subprocess.run(["ffmpeg", "-version"], capture_output=True, timeout=5)
+    except:
+        print("❌ 错误: 请安装 ffmpeg")
+        print("   运行: brew install ffmpeg")
+        return False
+    
+    # 检查 douyin-download
+    douyin_script = os.path.expanduser("~/.openclaw/workspace/skills/douyin-download/douyin.js")
+    if not os.path.exists(douyin_script):
+        print("⚠️ 提示: 抖音下载需要安装 douyin-download skill")
+        print("   运行: npx clawhub install douyin-download")
+    
+    return True
 
 def get_video_title(url):
     """获取视频标题"""
@@ -127,49 +46,43 @@ def get_video_title(url):
     )
     return result.stdout.strip().split('\n')[0]
 
-def download_audio(url, output="/tmp/video-audio.m4a"):
-    """下载视频音频"""
+def is_douyin(url):
+    """判断是否是抖音链接"""
+    return "douyin.com" in url or "douyin.com" in url
+
+def download_douyin(url, output):
+    """用 douyin-download 下载抖音"""
+    script = os.path.expanduser("~/.openclaw/workspace/skills/douyin-download/douyin.js")
+    result = subprocess.run(
+        ["node", script, "download", url, "-o", output],
+        capture_output=True, timeout=120
+    )
+    return result.returncode == 0
+
+def download_normal(url, output):
+    """用 yt-dlp 下载普通视频"""
     result = subprocess.run(
         ["yt-dlp", "-f", "30280", url, "-o", output],
         capture_output=True, timeout=60
     )
-    if result.returncode != 0:
-        print(f"⚠️ 下载警告: {result.stderr.decode()}")
-    return output
+    return result.returncode == 0
+
+def download_video(url, output):
+    """根据平台选择下载方式"""
+    os.makedirs(output, exist_ok=True)
+    
+    if is_douyin(url):
+        print("📥 抖音视频，使用 douyin-download...")
+        return download_douyin(url, output)
+    else:
+        print("📥 B站/YouTube视频，使用 yt-dlp...")
+        return download_normal(url, output)
 
 def transcribe(audio_path, model_size="small"):
     """Whisper语音识别"""
-    try:
-        model = whisper.load_model(model_size)
-        result = model.transcribe(audio_path, language="zh", fp16=False)
-        return result["text"]
-    except Exception as e:
-        print(f"❌ 语音识别失败: {e}")
-        sys.exit(1)
-
-def analyze_content(text):
-    """LLM分析内容"""
-    prompt = f"""分析以下内容，提取：
-1. 核心知识点 (3-5条)
-2. 适用人群
-3. 难度等级
-
-原文：{text[:3000]}"""
-
-    return call_llm(prompt, 1000)
-
-def generate_skill(text, title):
-    """生成完整Skill"""
-    prompt = f"""生成SKILL.md文件，包含：
-1. 技能名称
-2. 简短描述
-3. 功能列表(5条)
-4. 使用示例(对话形式)
-
-视频标题：{title}
-内容：{text[:3000]}"""
-
-    return call_llm(prompt, 2000)
+    model = whisper.load_model(model_size)
+    result = model.transcribe(audio_path, language="zh", fp16=False)
+    return result["text"]
 
 def save_skill(content, skill_name):
     """自动安装Skill"""
@@ -180,21 +93,21 @@ def save_skill(content, skill_name):
     return skill_path
 
 def main():
-    print(f"🤖 使用 LLM: {LLM_PROVIDER}")
+    print("🤖 Video-Learner - 视频转Skill工具")
     
-    # 检查API Key
-    check_api_key()
-
+    # 检查依赖
+    if not check_dependencies():
+        sys.exit(1)
+    
     # 检查参数
     if len(sys.argv) < 2:
         print("用法: python3 video-learner.py <视频链接> [Skill名称]")
-        print("示例: python3 video-learner.py 'https://www.bilibili.com/video/BVxxx/' '我的技能'")
         sys.exit(1)
 
     url = sys.argv[1]
     name = sys.argv[2] if len(sys.argv) > 2 else "auto-skill"
 
-    # 步骤1: 获取标题
+    # 获取标题
     print(f"📥 获取视频: {url}")
     try:
         title = get_video_title(url)
@@ -203,38 +116,42 @@ def main():
         print(f"❌ 获取标题失败: {e}")
         sys.exit(1)
 
-    # 步骤2: 下载音频
-    print("⬇️ 下载音频...")
-    audio = download_audio(url)
+    # 下载视频
+    output = f"/tmp/video-download-{os.getpid()}"
+    print("⬇️ 下载视频...")
+    if not download_video(url, output):
+        print("❌ 下载失败")
+        sys.exit(1)
 
-    # 步骤3: 语音识别
-    print("🎤 语音识别...")
-    text = transcribe(audio)
+    # 查找下载的文件
+    video_file = None
+    for f in os.listdir(output):
+        if f.endswith('.mp4'):
+            video_file = os.path.join(output, f)
+            break
+    
+    if not video_file:
+        print("❌ 未找到视频文件")
+        sys.exit(1)
+
+    # 转换音频
+    audio_file = os.path.join(output, "audio.wav")
+    print("🎤 转换音频...")
+    result = subprocess.run(
+        ["ffmpeg", "-i", video_file, "-ar", "16000", "-ac", "1", audio_file, "-y"],
+        capture_output=True
+    )
+    if result.returncode != 0:
+        print("❌ 音频转换失败")
+        sys.exit(1)
+
+    # 语音识别
+    print("🔍 语音识别...")
+    text = transcribe(audio_file)
     print(f"📝 识别了 {len(text)} 字")
 
-    # 步骤4: 分析内容
-    print("🔍 分析内容...")
-    analysis = analyze_content(text)
-    print("\n" + "="*50)
-    print("📋 分析结果：")
-    print(analysis)
-    print("="*50)
-    
-    confirm = input("\n✅ 确认生成Skill? (y/n): ")
-    if confirm.lower() != 'y':
-        print("❌ 已取消")
-        return
-
-    # 步骤5: 生成Skill
-    print("🤖 生成Skill...")
-    skill = generate_skill(text, title)
-
-    # 步骤6: 安装
-    print("💾 安装Skill...")
-    path = save_skill(skill, name)
-
-    print(f"\n✅ 完成！Skill已安装: {path}")
-    print("💡 以后可以直接使用这个技能了！")
+    print(f"\n✅ 完成！识别内容：")
+    print(text[:500] + "...")
 
 if __name__ == "__main__":
     main()
