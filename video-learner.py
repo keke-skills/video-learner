@@ -128,14 +128,14 @@ def download_douyin(url, output):
         ["node", script, "download", url, "-o", output],
         capture_output=True, timeout=120
     )
-    if result.returncode != 0: print(f"下载失败: {result.stderr.decode()[:100] if result.stderr else "未知"}"); return result.returncode == 0
+    if result.returncode != 0: print("下载失败"); return False
 
 def download_normal(url, output):
     result = subprocess.run(
         ["yt-dlp", "-f", "30280", url, "-o", output],
         capture_output=True, timeout=60
     )
-    if result.returncode != 0: print(f"下载失败: {result.stderr.decode()[:100] if result.stderr else "未知"}"); return result.returncode == 0
+    if result.returncode != 0: print("下载失败"); return False
 
 def download_video(url, output):
     os.makedirs(output, exist_ok=True)
