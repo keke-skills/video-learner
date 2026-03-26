@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 """
-Video-Learner - 视频转Skill工具（整合版）
-支持抖音/B站/YouTube
+Video-Learner - 视频转Skill工具（整合版 + 自动保存）
+支持抖音/B站/YouTube，自动安装Skill
 """
 
 import subprocess
 import whisper
+import requests
 import os
 import sys
+import json
 
 # 输出目录
 SKILLS_DIR = os.path.expanduser("~/.openclaw/workspace/skills")
+
+# LLM 配置（可选，用于生成Skill）
+MINIMAX_API_KEY = os.environ.get("MINIMAX_API_KEY", "")
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "minimax")
 
 DEPENDENCIES = {
     "yt-dlp": {
@@ -36,7 +42,6 @@ DEPENDENCIES = {
 }
 
 def print_banner():
-    """显示依赖检查"""
     print("="*50)
     print("📦 Video-Learner - 视频转Skill工具")
     print("="*50)
@@ -46,13 +51,10 @@ def print_banner():
     print("\n" + "="*50)
 
 def check_dependencies():
-    """检查依赖"""
     missing = []
-    
     for name, info in DEPENDENCIES.items():
         try:
             if name == "whisper":
-                # 特殊检查 whisper
                 result = subprocess.run(
                     ["python3", "-c", "import whisper"],
                     capture_output=True, timeout=5
@@ -102,7 +104,6 @@ def download_normal(url, output):
 
 def download_video(url, output):
     os.makedirs(output, exist_ok=True)
-    
     if is_douyin(url):
         print("📥 抖音视频...")
         return download_douyin(url, output)
@@ -115,19 +116,62 @@ def transcribe(audio_path, model_size="small"):
     result = model.transcribe(audio_path, language="zh", fp16=False)
     return result["text"]
 
+def generate_skill_with_llm(text, title):
+    """用LLM生成Skill（如果配置了API Key）"""
+    if not MINIMAX_API_KEY:
+        return None
+    
+    prompt = f"""生成SKILL.md文件，包含：
+1. 技能名称
+2. 简短描述
+3. 功能列表(5条)
+4. 使用示例(对话形式)
+
+视频标题：{title}
+内容：{text[:3000]}"""
+
+    try:
+        resp = requests.post(
+            "https://api.minimax.chat/v1/text/chatcompletion_v2",
+            headers={
+                "Authorization": f"Bearer {MINIMAX_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            json={
+                "model": "MiniMax-M2.5",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 2000
+            },
+            timeout=30
+        )
+        data = resp.json()
+        if "choices" in data and len(data["choices"]) > 0:
+            return data["choices"][0]["message"]["content"]
+    except:
+        pass
+    return None
+
+def save_skill(content, skill_name):
+    """自动安装Skill到skills目录"""
+    skill_path = os.path.join(SKILLS_DIR, skill_name, "SKILL.md")
+    os.makedirs(os.path.dirname(skill_path), exist_ok=True)
+    with open(skill_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return skill_path
+
 def main():
-    # 显示依赖检查
     print_banner()
     
     if not check_dependencies():
         sys.exit(1)
     
+    # 检查参数
     if len(sys.argv) < 2:
         print("用法: python3 video-learner.py <视频链接> [Skill名称]")
         sys.exit(1)
 
     url = sys.argv[1]
-    name = sys.argv[2] if len(sys.argv) > 2 else "auto-skill"
+    skill_name = sys.argv[2] if len(sys.argv) > 2 else "auto-skill"
 
     print(f"📥 获取视频: {url}")
     try:
@@ -137,6 +181,7 @@ def main():
         print(f"❌ 获取标题失败: {e}")
         sys.exit(1)
 
+    # 下载视频
     output = f"/tmp/video-download-{os.getpid()}"
     print("⬇️ 下载视频...")
     if not download_video(url, output):
@@ -170,8 +215,21 @@ def main():
     text = transcribe(audio_file)
     print(f"📝 识别了 {len(text)} 字")
 
-    print(f"\n✅ 完成！识别内容：")
-    print(text[:500] + "...")
+    # 如果配置了 LLM，自动生成并保存 Skill
+    if MINIMAX_API_KEY:
+        print("🤖 生成Skill...")
+        skill_content = generate_skill_with_llm(text, title)
+        if skill_content:
+            print("💾 保存Skill...")
+            path = save_skill(skill_content, skill_name)
+            print(f"\n✅ 完成！Skill已安装: {path}")
+            print("💡 以后可以直接使用这个技能了！")
+        else:
+            print("⚠️ Skill生成失败")
+    else:
+        print("\n✅ 识别完成！")
+        print(f"📝 内容预览：{text[:200]}...")
+        print("\n💡 如果需要生成Skill，请设置 MINIMAX_API_KEY 环境变量")
 
 if __name__ == "__main__":
     main()
