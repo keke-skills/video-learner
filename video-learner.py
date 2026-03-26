@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 """
-Content Extractor - 视频转Skill工具（安全版）
-自动从B站/YouTube视频生成OpenClaw Skill
-
-流程：视频 → 下载 → 识别 → 分析展示 → 用户确认 → 生成 → 自动安装
+Video-Learner - 视频转Skill工具（多LLM版本）
+支持多种大语言模型
 """
 
 import subprocess
@@ -12,26 +10,120 @@ import requests
 import os
 import sys
 
-# 从环境变量读取 API Key（安全）
-API_KEY = os.environ.get("MINIMAX_API_KEY", "")
-MODEL = "MiniMax-M2.5"
+# ==================== 配置 ====================
+# 选择 LLM 提供商: minimax / openai / claude
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "minimax")
 
-# 获取用户目录（兼容不同机器）
+# MiniMax 配置
+MINIMAX_API_KEY = os.environ.get("MINIMAX_API_KEY", "")
+MINIMAX_MODEL = "MiniMax-M2.5"
+
+# OpenAI 配置
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_MODEL = "gpt-4o-mini"
+
+# Claude 配置
+CLAUDE_API_KEY = os.environ.get("CLAUDE_API_KEY", "")
+CLAUDE_MODEL = "claude-3-haiku-20240307"
+
+# 输出目录
 SKILLS_DIR = os.path.expanduser("~/.openclaw/workspace/skills")
+
+# ==================== 核心函数 ====================
 
 def check_api_key():
     """检查API Key是否设置"""
-    if not API_KEY:
+    if LLM_PROVIDER == "minimax" and not MINIMAX_API_KEY:
         print("❌ 错误: 请设置环境变量 MINIMAX_API_KEY")
         print("   运行: export MINIMAX_API_KEY='你的API Key'")
         sys.exit(1)
+    elif LLM_PROVIDER == "openai" and not OPENAI_API_KEY:
+        print("❌ 错误: 请设置环境变量 OPENAI_API_KEY")
+        print("   运行: export OPENAI_API_KEY='你的API Key'")
+        sys.exit(1)
+    elif LLM_PROVIDER == "claude" and not CLAUDE_API_KEY:
+        print("❌ 错误: 请设置环境变量 CLAUDE_API_KEY")
+        print("   运行: export CLAUDE_API_KEY='你的API Key'")
+        sys.exit(1)
+
+def call_llm(prompt, max_tokens=1000):
+    """调用LLM"""
+    if LLM_PROVIDER == "minimax":
+        return call_minimax(prompt, max_tokens)
+    elif LLM_PROVIDER == "openai":
+        return call_openai(prompt, max_tokens)
+    elif LLM_PROVIDER == "claude":
+        return call_claude(prompt, max_tokens)
+    else:
+        print(f"❌ 不支持的LLM: {LLM_PROVIDER}")
+        sys.exit(1)
+
+def call_minimax(prompt, max_tokens):
+    """调用MiniMax"""
+    resp = requests.post(
+        "https://api.minimax.chat/v1/text/chatcompletion_v2",
+        headers={
+            "Authorization": f"Bearer {MINIMAX_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": MINIMAX_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens
+        },
+        timeout=30
+    )
+    data = resp.json()
+    if "choices" in data and len(data["choices"]) > 0:
+        return data["choices"][0]["message"]["content"]
+    return f"API返回异常: {data}"
+
+def call_openai(prompt, max_tokens):
+    """调用OpenAI"""
+    resp = requests.post(
+        "https://api.openai.com/v1/chat/completions",
+        headers={
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": OPENAI_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens
+        },
+        timeout=30
+    )
+    data = resp.json()
+    if "choices" in data and len(data["choices"]) > 0:
+        return data["choices"][0]["message"]["content"]
+    return f"API返回异常: {data}"
+
+def call_claude(prompt, max_tokens):
+    """调用Claude"""
+    resp = requests.post(
+        "https://api.anthropic.com/v1/messages",
+        headers={
+            "x-api-key": CLAUDE_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json"
+        },
+        json={
+            "model": CLAUDE_MODEL,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "user", "content": prompt}]
+        },
+        timeout=30
+    )
+    data = resp.json()
+    if "content" in data and len(data["content"]) > 0:
+        return data["content"][0]["text"]
+    return f"API返回异常: {data}"
 
 def get_video_title(url):
     """获取视频标题"""
     result = subprocess.run(
         ["yt-dlp", "--get-title", url],
-        capture_output=True, text=True,
-        timeout=30
+        capture_output=True, text=True, timeout=30
     )
     return result.stdout.strip().split('\n')[0]
 
@@ -56,45 +148,19 @@ def transcribe(audio_path, model_size="small"):
         sys.exit(1)
 
 def analyze_content(text):
-    """LLM分析内容 - 先展示给用户确认"""
-    try:
-        prompt = f"""分析以下内容，提取：
+    """LLM分析内容"""
+    prompt = f"""分析以下内容，提取：
 1. 核心知识点 (3-5条)
 2. 适用人群
 3. 难度等级
 
 原文：{text[:3000]}"""
 
-        resp = requests.post(
-            "https://api.minimax.chat/v1/text/chatcompletion_v2",
-            headers={
-                "Authorization": f"Bearer {API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": MODEL,
-                "messages": [
-                    {"role": "system", "content": "你是内容分析专家"},
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": 1000
-            },
-            timeout=30
-        )
-        data = resp.json()
-        if "choices" in data and len(data["choices"]) > 0:
-            return data["choices"][0]["message"]["content"]
-        else:
-            print(f"⚠️ API返回异常: {data}")
-            return "分析失败"
-    except Exception as e:
-        print(f"⚠️ 分析出错: {e}")
-        return "分析失败"
+    return call_llm(prompt, 1000)
 
 def generate_skill(text, title):
     """生成完整Skill"""
-    try:
-        prompt = f"""生成SKILL.md文件，包含：
+    prompt = f"""生成SKILL.md文件，包含：
 1. 技能名称
 2. 简短描述
 3. 功能列表(5条)
@@ -103,32 +169,10 @@ def generate_skill(text, title):
 视频标题：{title}
 内容：{text[:3000]}"""
 
-        resp = requests.post(
-            "https://api.minimax.chat/v1/text/chatcompletion_v2",
-            headers={
-                "Authorization": f"Bearer {API_KEY}",
-                "Content-Type": "application/json"
-            },
-            json={
-                "model": MODEL,
-                "messages": [
-                    {"role": "system", "content": "你是技能生成助手"},
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": 2000
-            },
-            timeout=30
-        )
-        data = resp.json()
-        if "choices" in data and len(data["choices"]) > 0:
-            return data["choices"][0]["message"]["content"]
-        else:
-            return "Skill生成失败"
-    except Exception as e:
-        return f"Skill生成失败: {e}"
+    return call_llm(prompt, 2000)
 
 def save_skill(content, skill_name):
-    """自动安装Skill到skills目录"""
+    """自动安装Skill"""
     skill_path = os.path.join(SKILLS_DIR, skill_name, "SKILL.md")
     os.makedirs(os.path.dirname(skill_path), exist_ok=True)
     with open(skill_path, "w", encoding="utf-8") as f:
@@ -136,13 +180,15 @@ def save_skill(content, skill_name):
     return skill_path
 
 def main():
+    print(f"🤖 使用 LLM: {LLM_PROVIDER}")
+    
     # 检查API Key
     check_api_key()
 
     # 检查参数
     if len(sys.argv) < 2:
-        print("用法: python3 content-extractor.py <视频链接> [Skill名称]")
-        print("示例: python3 content-extractor.py 'https://www.bilibili.com/video/BVxxx/' '我的技能'")
+        print("用法: python3 video-learner.py <视频链接> [Skill名称]")
+        print("示例: python3 video-learner.py 'https://www.bilibili.com/video/BVxxx/' '我的技能'")
         sys.exit(1)
 
     url = sys.argv[1]
@@ -166,7 +212,7 @@ def main():
     text = transcribe(audio)
     print(f"📝 识别了 {len(text)} 字")
 
-    # 步骤4: 分析内容（展示给用户确认）
+    # 步骤4: 分析内容
     print("🔍 分析内容...")
     analysis = analyze_content(text)
     print("\n" + "="*50)
@@ -179,11 +225,11 @@ def main():
         print("❌ 已取消")
         return
 
-    # 步骤5: 生成完整Skill
+    # 步骤5: 生成Skill
     print("🤖 生成Skill...")
     skill = generate_skill(text, title)
 
-    # 步骤6: 自动安装
+    # 步骤6: 安装
     print("💾 安装Skill...")
     path = save_skill(skill, name)
 
