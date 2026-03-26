@@ -89,15 +89,32 @@ def clean_filename(name):
     return name
 
 def get_video_title(url):
+    """获取视频标题，抖音用douyin-download，其他用yt-dlp"""
     try:
-        result = subprocess.run(
-            ["yt-dlp", "--get-title", url],
-            capture_output=True, text=True, timeout=30
-        )
-        title = result.stdout.strip().split('\n')[0]
-        if not title:
+        if is_douyin(url):
+            # 抖音：用 douyin-download 的 info 命令
+            script = os.path.join(os.path.dirname(__file__), "douyin-download", "douyin.js")
+            result = subprocess.run(
+                ["node", script, "info", url],
+                capture_output=True, text=True, timeout=30
+            )
+            # 解析输出获取标题
+            for line in result.stdout.split('\n'):
+                if '标题:' in line:
+                    title = line.split('标题:')[1].strip()
+                    if title:
+                        return title
             return "video-skill"
-        return title
+        else:
+            # B站/YouTube：用 yt-dlp
+            result = subprocess.run(
+                ["yt-dlp", "--get-title", url],
+                capture_output=True, text=True, timeout=30
+            )
+            title = result.stdout.strip().split('\n')[0]
+            if not title:
+                return "video-skill"
+            return title
     except Exception as e:
         print(f"⚠️ 获取标题失败，使用默认名称: {e}")
         return "video-skill"
@@ -111,14 +128,14 @@ def download_douyin(url, output):
         ["node", script, "download", url, "-o", output],
         capture_output=True, timeout=120
     )
-    return result.returncode == 0
+    if result.returncode != 0: print(f"下载失败: {result.stderr.decode()[:100] if result.stderr else "未知"}"); return result.returncode == 0
 
 def download_normal(url, output):
     result = subprocess.run(
         ["yt-dlp", "-f", "30280", url, "-o", output],
         capture_output=True, timeout=60
     )
-    return result.returncode == 0
+    if result.returncode != 0: print(f"下载失败: {result.stderr.decode()[:100] if result.stderr else "未知"}"); return result.returncode == 0
 
 def download_video(url, output):
     os.makedirs(output, exist_ok=True)
