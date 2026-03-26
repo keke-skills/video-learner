@@ -11,7 +11,7 @@
  * 5. 自动保存文案到文件
  * 
  * 环境变量:
- * - SILI_FLOW_API_KEY: 硅基流动 API 密钥 (用于文案提取功能)
+ * - 
  * - MINIMAX_API_KEY: MiniMax API 密钥 (用于语义分段功能)
  * 
  * 使用示例:
@@ -36,8 +36,8 @@ const HEADERS = {
   'Accept-Language': 'zh-CN,zh;q=0.9',
 };
 
-const SILI_FLOW_BASE_URL = 'https://api.siliconflow.cn/v1/audio/transcriptions';
-const SILI_FLOW_MODEL = 'FunAudioLLM/SenseVoiceSmall';
+
+
 const MINIMAX_BASE_URL = 'https://api.minimaxi.com';
 const DEFAULT_DOWNLOAD_PATH = '/tmp/douyin-download/';
 
@@ -275,10 +275,8 @@ async function transcribeAudio(audioPath, apiKey, showProgress = true) {
     const { spawn } = require('child_process');
     const proc = spawn('curl', [
       '-X', 'POST',
-      SILI_FLOW_BASE_URL,
       '-H', `Authorization: Bearer ${apiKey}`,
       '-F', `file=@${audioPath}`,
-      '-F', `model=${SILI_FLOW_MODEL}`
     ]);
     
     let stdout = '';
@@ -391,11 +389,11 @@ async function semanticSegment(text, apiKey, showProgress = true) {
 // 提取文案主函数
 async function extractText(shareLink, apiKey, outputDir, saveVideo = false, showProgress = true, doSegment = true) {
   if (!apiKey) {
-    apiKey = process.env.SILI_FLOW_API_KEY;
+    apiKey = process.env.
   }
   
   if (!apiKey) {
-    throw new Error('未设置 API 密钥，请设置 SILI_FLOW_API_KEY 环境变量');
+    throw new Error('未设置 API 密钥，请设置 
   }
   
   if (showProgress) {
