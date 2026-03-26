@@ -1,13 +1,28 @@
-# Video-Learner(BiliBili/Douyin/Youtube)
+# Video-Learner 🎥
 
 把视频变成可用的 OpenClaw Skill！
 
-## 更新日志
-- 🗓 **2026年3月26日**
+## ⚠️ 重要提醒
+
+**使用前必须先安装依赖！** 否则无法正常工作。
+
+```bash
+# 安装 yt-dlp（视频下载）
+pip3 install yt-dlp
+
+# 安装 Whisper（语音识别）
+pip3 install openai-whisper
+
+# 安装 ffmpeg（音视频处理）
+brew install ffmpeg
+
+# 安装 Node.js（抖音下载需要）
+brew install node
+```
 
 ## 功能
 
-- 📥 **视频下载** - 支持抖音/B站/YouTube
+- 📥 **视频下载** - 支持抖音/B站/YouTube（已内置抖音下载）
 - 🎙️ **语音识别** - 用 Whisper 转文字
 - ✅ **用户确认** - 分析后确认再生成
 - 📦 **自动安装** - 安装到 skills 目录
@@ -17,7 +32,7 @@
 
 | 平台 | 状态 |
 |------|------|
-| 🎵 抖音 | ✅ |
+| 🎵 抖音 | ✅ 已内置下载器 |
 | 📺 B站 | ✅ |
 | 🎬 YouTube | ✅ |
 
@@ -30,8 +45,6 @@
 
 ## 手动运行（可选）
 
-如果想自己跑脚本：
-
 ### 1. 克隆仓库
 
 ```bash
@@ -39,7 +52,7 @@ git clone https://github.com/wd-skills/video-learner.git
 cd video-learner
 ```
 
-### 2. 安装依赖
+### 2. 安装依赖（必须！）
 
 ```bash
 # 安装 yt-dlp
@@ -50,6 +63,9 @@ pip3 install openai-whisper
 
 # 安装 ffmpeg
 brew install ffmpeg
+
+# 安装 Node.js
+brew install node
 ```
 
 ### 3. 运行
@@ -58,21 +74,16 @@ brew install ffmpeg
 python3 video-learner.py "视频链接" "Skill名称"
 ```
 
-## 安全设计
-
-- ✅ 不需要额外 LLM 配置（使用 OpenClaw 本身的能力）
-- ✅ 需要用户确认才生成
-- ✅ 不直接记忆知识点（避免知识错乱）
-- ✅ 分开存储，不影响基础能力
-
 ## 文件结构
 
 ```
 video-learner/
-├── video-learner.py      # 主脚本（可选）
+├── video-learner.py      # 主脚本
+├── douyin-download/      # 内置抖音下载器（已整合）
+│   └── douyin.js
 ├── video-learner/        # Skill 目录
-│   └── SKILL.md         # Skill 说明
-└── README.md            # 本文件
+│   └── SKILL.md
+└── README.md
 ```
 
 ## License

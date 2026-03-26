@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Video-Learner - 视频转Skill工具（整合版）
-支持抖音/B站/YouTube，抖音使用 douyin-download
+支持抖音/B站/YouTube，抖音下载已内置
 """
 
 import subprocess
@@ -30,11 +30,13 @@ def check_dependencies():
         print("   运行: brew install ffmpeg")
         return False
     
-    # 检查 douyin-download
-    douyin_script = os.path.expanduser("~/.openclaw/workspace/skills/douyin-download/douyin.js")
-    if not os.path.exists(douyin_script):
-        print("⚠️ 提示: 抖音下载需要安装 douyin-download skill")
-        print("   运行: npx clawhub install douyin-download")
+    # 检查 Node.js（用于 douyin-download）
+    try:
+        subprocess.run(["node", "--version"], capture_output=True, timeout=5)
+    except:
+        print("❌ 错误: 请安装 Node.js")
+        print("   运行: brew install node")
+        return False
     
     return True
 
@@ -48,11 +50,11 @@ def get_video_title(url):
 
 def is_douyin(url):
     """判断是否是抖音链接"""
-    return "douyin.com" in url or "douyin.com" in url
+    return "douyin.com" in url
 
 def download_douyin(url, output):
-    """用 douyin-download 下载抖音"""
-    script = os.path.expanduser("~/.openclaw/workspace/skills/douyin-download/douyin.js")
+    """用内置 douyin-download 下载抖音"""
+    script = os.path.join(os.path.dirname(__file__), "douyin-download", "douyin.js")
     result = subprocess.run(
         ["node", script, "download", url, "-o", output],
         capture_output=True, timeout=120
@@ -72,7 +74,7 @@ def download_video(url, output):
     os.makedirs(output, exist_ok=True)
     
     if is_douyin(url):
-        print("📥 抖音视频，使用 douyin-download...")
+        print("📥 抖音视频，使用内置下载器...")
         return download_douyin(url, output)
     else:
         print("📥 B站/YouTube视频，使用 yt-dlp...")
