@@ -73,23 +73,34 @@ def check_dependencies():
 
 def clean_filename(name):
     """清理文件名，去除特殊字符"""
-    # 去除 # 标签、emoji等
+    # 简单处理：只保留字母、数字、中文、常见符号
     import re
-    name = re.sub(r'[#\u0001F300-\u0001F9FF]', '', name)  # 去除emoji和#
+    # 只保留字母、数字、中文、常用符号
+    name = re.sub(r'[^\w\u4e00-\u9fff\u3000-\u303f\uff00-\uffef\-_]', '', name)
     name = name.strip()
     # 限制长度
     if len(name) > 30:
         name = name[:30]
     # 空格转横线
     name = name.replace(' ', '-')
+    # 如果为空，给个默认名
+    if not name:
+        name = "video-skill"
     return name
 
 def get_video_title(url):
-    result = subprocess.run(
-        ["yt-dlp", "--get-title", url],
-        capture_output=True, text=True, timeout=30
-    )
-    return result.stdout.strip().split('\n')[0]
+    try:
+        result = subprocess.run(
+            ["yt-dlp", "--get-title", url],
+            capture_output=True, text=True, timeout=30
+        )
+        title = result.stdout.strip().split('\n')[0]
+        if not title:
+            return "video-skill"
+        return title
+    except Exception as e:
+        print(f"⚠️ 获取标题失败，使用默认名称: {e}")
+        return "video-skill"
 
 def is_douyin(url):
     return "douyin.com" in url
