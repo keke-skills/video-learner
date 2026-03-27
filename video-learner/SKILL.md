@@ -9,6 +9,21 @@ description: 分析视频内容，生成可调用的Skill。
 
 当用户发送抖音/B站/YouTube视频链接时，本Skill被调用。
 
+## 环境要求
+
+本Skill需要以下工具存在于环境中：
+- `yt-dlp` - 视频下载
+- `ffmpeg` - 音视频处理
+- `whisper` - 语音识别（Python包）
+- `node` + `douyin-download` - 抖音下载
+
+如未安装，请先运行：
+```bash
+pip3 install yt-dlp openai-whisper
+brew install ffmpeg node
+npx clawhub install douyin-download
+```
+
 ## 处理流程
 
 1. 用 yt-dlp 或 douyin-download 下载视频
