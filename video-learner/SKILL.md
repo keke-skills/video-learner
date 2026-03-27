@@ -3,6 +3,7 @@ name: video-learner
 description: 分析视频内容，生成可调用的Skill。
 requires:
   binaries:
+    - python3
     - yt-dlp
     - ffmpeg
     - whisper
@@ -18,8 +19,8 @@ requires:
 ## 声明
 
 本Skill需要以下工具和访问权限：
-- **工具**：yt-dlp, ffmpeg, whisper (Python), node
-- **依赖Skill**：douyin-download
+- **工具**：python3, yt-dlp, ffmpeg, whisper (Python包), node
+- **依赖Skill**：douyin-download（需要node运行）
 - **写入路径**：~/.openclaw/workspace/skills/
 
 ## 触发条件
