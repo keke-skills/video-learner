@@ -37,20 +37,29 @@ When the user sends a Douyin/BiliBili/YouTube video link, this skill is invoked.
 3. Extract audio using ffmpeg
 4. Transcribe audio to text using Whisper (local)
 5. Analyze text content using the agent's LLM capability
-6. Display analysis results to user
-7. After user confirmation, generate SKILL.md to ~/.openclaw/workspace/skills/<new-skill-name>/
+6. **Display analysis results to user for review**
+7. After **explicit user confirmation**, generate SKILL.md to ~/.openclaw/workspace/skills/<new-skill-name>/
 8. Delete temp video files after processing
+
+## Generated Skills Are NOT Auto-Enabled
+
+- Generated SKILL.md files are saved to disk but **NOT auto-enabled**
+- User must **manually review and approve** any new skill before it becomes active
+- Newly created skills are disabled by default
+- User can delete generated skills at any time from ~/.openclaw/workspace/skills/
 
 ## Security Notes
 
 - Whisper: Runs locally, no audio sent to external services
 - Content analysis: Uses the agent's own model capability
 - Temp files: Automatically cleaned up after processing
-- User confirmation: Required before generating new Skill
-- Generated Skills are stored in ~/.openclaw/workspace/skills/ and can be deleted anytime
+- **User confirmation required**: Agent cannot generate skills without explicit user approval
+- **Manual review**: Generated SKILL.md content is shown to user before saving
+- **No auto-execution**: New skills are created disabled until user enables them
 
 ## Limitations
 
 - Only processes user-provided video links
 - Does not proactively fetch other content
 - Does not store video files
+- Cannot auto-enable generated skills
