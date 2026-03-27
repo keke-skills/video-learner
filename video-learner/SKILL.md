@@ -26,13 +26,26 @@ npx clawhub install douyin-download
 
 ## 处理流程
 
-1. 用 yt-dlp 或 douyin-download 下载视频
-2. 用 ffmpeg 提取音频
-3. 用 Whisper 本地转文字
-4. 用自身LLM能力分析文字内容，提取：核心知识点、适用人群、难度
-5. 展示分析结果给用户
-6. 用户确认后，生成SKILL.md文件
-7. 保存到 ~/.openclaw/workspace/skills/<自动命名>/SKILL.md
+1. 在系统临时目录 `/tmp/` 创建子目录下载视频
+2. 用 yt-dlp 或 douyin-download 下载视频到临时目录
+3. 用 ffmpeg 提取音频
+4. 用 Whisper 本地转文字（不发送音频到外部服务）
+5. 用本Agent的LLM能力分析文字内容，提取：核心知识点、适用人群、难度
+6. 展示分析结果给用户
+7. 用户确认后，生成SKILL.md文件
+8. 保存到 ~/.openclaw/workspace/skills/<自动命名>/SKILL.md
+9. **处理完成后删除临时视频文件**
+
+## 临时文件处理
+
+- 下载目录：`/tmp/video-*/`
+- 音频文件：`/tmp/video-*/audio.wav`
+- **处理完成后自动清理，不保留原始视频**
+
+## LLM说明
+
+- Whisper：本地运行，不发送音频到外部
+- 内容分析：使用本Agent的模型能力，推理过程在Agent内部完成
 
 ## 输出
 
@@ -45,5 +58,4 @@ npx clawhub install douyin-download
 
 - 仅处理用户主动发送的视频链接
 - 不主动获取其他内容
-- 不存储视频文件（仅存文字和分析结果）
-- 生成内容基于视频原始内容，不添加外部信息
+- 不存储视频文件（仅存分析结果）
