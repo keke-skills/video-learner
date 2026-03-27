@@ -1,17 +1,6 @@
 ---
 name: video-learner
 description: Analyze video content and generate a callable OpenClaw Skill.
-requires:
-  binaries:
-    - python3
-    - yt-dlp
-    - ffmpeg
-    - whisper
-    - node
-  skills:
-    - douyin-download
-  paths:
-    - ~/.openclaw/workspace/skills/
 ---
 
 # Video-Learner
@@ -20,42 +9,44 @@ requires:
 
 Convert any video (Douyin/BiliBili/YouTube) into a callable OpenClaw Skill.
 
-## Declared Requirements
+## How It Works
 
-- **Tools**: python3, yt-dlp, ffmpeg, whisper (Python), node
-- **Dependency**: douyin-download (requires node)
-- **Write access**: ~/.openclaw/workspace/skills/
+1. User sends a video link
+2. This agent downloads, transcribes, and analyzes the video
+3. Analysis results are shown to user
+4. After user confirmation, a new SKILL.md is created in ~/.openclaw/workspace/skills/
+5. New skills are created in **disabled** state and require manual enable
+
+## Required Tools
+
+This skill uses these tools at runtime:
+- **yt-dlp** - Download videos
+- **ffmpeg** - Extract audio
+- **whisper** - Transcribe audio to text (local, no network upload)
+- **node** + **douyin-download** - For Douyin videos
+- **python3** - Required by whisper
+
+If tools are missing, the agent will report which ones need installation.
+
+## Key Points
+
+- **User confirmation required**: Agent cannot generate skills without explicit approval
+- **Generated skills are disabled**: New skills are saved but not auto-enabled
+- **Manual review**: User must manually inspect and enable any generated skill
+- **Temp files cleaned**: Downloaded videos are deleted after processing
+- **Local transcription**: Audio is transcribed locally, not sent to external services
 
 ## Trigger
 
 When the user sends a Douyin/BiliBili/YouTube video link, this skill is invoked.
 
-## Processing Flow
-
-1. Create temp directory in `/tmp/` for video download
-2. Download video using yt-dlp or douyin-download
-3. Extract audio using ffmpeg
-4. Transcribe audio to text using Whisper (local)
-5. Analyze text content using the agent's LLM capability
-6. **Display analysis results to user for review**
-7. After **explicit user confirmation**, generate SKILL.md to ~/.openclaw/workspace/skills/<new-skill-name>/
-8. Delete temp video files after processing
-
-## Generated Skills Are NOT Auto-Enabled
-
-- Generated SKILL.md files are saved to disk but **NOT auto-enabled**
-- User must **manually review and approve** any new skill before it becomes active
-- Newly created skills are disabled by default
-- User can delete generated skills at any time from ~/.openclaw/workspace/skills/
-
 ## Security Notes
 
-- Whisper: Runs locally, no audio sent to external services
-- Content analysis: Uses the agent's own model capability
-- Temp files: Automatically cleaned up after processing
-- **User confirmation required**: Agent cannot generate skills without explicit user approval
-- **Manual review**: Generated SKILL.md content is shown to user before saving
-- **No auto-execution**: New skills are created disabled until user enables them
+- Whisper runs locally - no audio sent to external services
+- Content analysis uses the agent's own model capability
+- User confirmation required before generating any skill
+- Generated skills are disabled until user enables them
+- Can delete any generated skill from ~/.openclaw/workspace/skills/ anytime
 
 ## Limitations
 
